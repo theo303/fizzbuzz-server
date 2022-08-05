@@ -18,7 +18,7 @@ func Test_getParamsFizzbuzz(t *testing.T) {
 		"OK": {
 			values: url.Values{
 				"int1":  []string{"1"},
-				"int2":  []string{"2.7"},
+				"int2":  []string{"2"},
 				"limit": []string{"3"},
 				"str1":  []string{"str1"},
 				"str2":  []string{"str2"},
@@ -35,15 +35,25 @@ func Test_getParamsFizzbuzz(t *testing.T) {
 			values:     url.Values{},
 			wantErrStr: []string{"int1 missing", "int2 missing", "limit missing", "str1 missing", "str2 missing"},
 		},
-		"KO - not valid integer": {
+		"KO - invalid integers": {
 			values: url.Values{
 				"int1":  []string{"a"},
-				"int2":  []string{"2"},
-				"limit": []string{"3"},
+				"int2":  []string{"2.7"},
+				"limit": []string{"9,8"},
 				"str1":  []string{"str1"},
 				"str2":  []string{"str2"},
 			},
-			wantErrStr: []string{"int1: could not convert to int"},
+			wantErrStr: []string{"int1: could not convert to int", "int2: could not convert to int", "limit: could not convert to int"},
+		},
+		"KO - invalid limit": {
+			values: url.Values{
+				"int1":  []string{"1"},
+				"int2":  []string{"2"},
+				"limit": []string{"0"},
+				"str1":  []string{"str1"},
+				"str2":  []string{"str2"},
+			},
+			wantErrStr: []string{"limit: invalid value (must be superior or equal to 1)"},
 		},
 	}
 	for name, tt := range tests {

@@ -30,8 +30,18 @@ func handlerFizzbuzz(w http.ResponseWriter, r *http.Request) {
 	if errParams != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(fmt.Sprintf("400 - Bad request, %s", errParams.Error())))
+		return
 	}
-	fmt.Printf("%+v\n", params)
+
+	output, errExec := fizzbuzz.ExecFizzbuzz(params)
+	if errExec != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(fmt.Sprintf("500 - Internal error, %s", errExec.Error())))
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(strings.Join(output, ",")))
 }
 
 // getParamsFizzbuzz verify that values contains all the mandatory parameters,
@@ -55,6 +65,8 @@ func getParamsFizzbuzz(values url.Values) (fizzbuzz.Params, error) {
 		errStrBuilder.WriteString("limit missing, ")
 	} else if params.Limit, errConv = strconv.Atoi(values.Get("limit")); errConv != nil {
 		errStrBuilder.WriteString(fmt.Sprintf("limit: could not convert to int: %s, ", errConv.Error()))
+	} else if params.Limit < 1 {
+		errStrBuilder.WriteString("limit: invalid value (must be superior or equal to 1), ")
 	}
 
 	if !values.Has("str1") {
