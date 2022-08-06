@@ -8,7 +8,7 @@ import (
 
 // Conf contains the program configuration
 type Conf struct {
-	Port int `env:"PORT,default=80"`
+	Port int `env:"PORT,default=8080"`
 }
 
 // InitEnvConf initiate a Conf struct using env vars
