@@ -8,7 +8,8 @@ import (
 
 // Conf contains the program configuration
 type Conf struct {
-	Port int `env:"PORT,default=8080"`
+	Port     int    `env:"PORT,default=8080"`
+	LogLevel string `env:"LOG_LEVEL,default=info"`
 }
 
 // InitEnvConf initiate a Conf struct using env vars

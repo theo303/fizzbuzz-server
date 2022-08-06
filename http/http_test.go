@@ -2,72 +2,80 @@ package http
 
 import (
 	"fizzbuzz-server/fizzbuzz"
-	"fmt"
-	"net/url"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func Test_getParamsFizzbuzz(t *testing.T) {
+func Test_getErrorBody(t *testing.T) {
 	tests := map[string]struct {
-		values     url.Values
-		want       fizzbuzz.Params
-		wantErrStr []string
+		err  formattedError
+		want []byte
 	}{
 		"OK": {
-			values: url.Values{
-				"int1":  []string{"1"},
-				"int2":  []string{"2"},
-				"limit": []string{"3"},
-				"str1":  []string{"str1"},
-				"str2":  []string{"str2"},
+			err: formattedError{
+				Code: http.StatusForbidden,
+				Desc: "test error",
 			},
+			want: []byte(`{"code":403,"desc":"test error"}`),
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tt.want, getErrorBody(tt.err))
+		})
+	}
+}
+
+func Test_getParamsFizzbuzz(t *testing.T) {
+	tests := map[string]struct {
+		body    []byte
+		want    fizzbuzz.Params
+		wantErr []string
+	}{
+		"OK": {
+			body: []byte(`{
+				"int1":3,
+				"int2":5,
+				"limit":16,
+				"str1":"fizz"
+			}`),
 			want: fizzbuzz.Params{
-				Int1:  1,
-				Int2:  2,
-				Limit: 3,
-				Str1:  "str1",
-				Str2:  "str2",
+				Int1:  3,
+				Int2:  5,
+				Limit: 16,
+				Str1:  "fizz",
+				Str2:  "",
 			},
 		},
-		"KO - missing all parameters": {
-			values:     url.Values{},
-			wantErrStr: []string{"int1 missing", "int2 missing", "limit missing", "str1 missing", "str2 missing"},
+		"KO - missing integers": {
+			body:    []byte(`{}`),
+			wantErr: []string{"int1 missing", "int2 missing", "limit missing"},
 		},
-		"KO - invalid integers": {
-			values: url.Values{
-				"int1":  []string{"a"},
-				"int2":  []string{"2.7"},
-				"limit": []string{"9,8"},
-				"str1":  []string{"str1"},
-				"str2":  []string{"str2"},
-			},
-			wantErrStr: []string{"int1: could not convert to int", "int2: could not convert to int", "limit: could not convert to int"},
+		"KO - limit negative": {
+			body: []byte(`{
+				"int1":3,
+				"limit":-16
+			}`),
+			wantErr: []string{"int2 missing", "limit must be superior to one"},
 		},
-		"KO - invalid limit": {
-			values: url.Values{
-				"int1":  []string{"1"},
-				"int2":  []string{"2"},
-				"limit": []string{"0"},
-				"str1":  []string{"str1"},
-				"str2":  []string{"str2"},
-			},
-			wantErrStr: []string{"limit: invalid value (must be superior or equal to 1)"},
+		"KO - invalid JSON": {
+			body:    []byte(`aaa`),
+			wantErr: []string{"invalid params"},
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			assertions := assert.New(t)
-
-			got, errGot := getParamsFizzbuzz(tt.values)
-			if len(tt.wantErrStr) != 0 {
-				for i, wantStr := range tt.wantErrStr {
-					assertions.Contains(errGot.Error(), wantStr, fmt.Sprintf("invalid error %d", i))
+			got, errGot := getParamsFizzbuzz(tt.body)
+			if len(tt.wantErr) != 0 {
+				for _, errStr := range tt.wantErr {
+					assertions.Contains(errGot.Error(), errStr, "error not found")
 				}
 			} else {
 				assertions.NoError(errGot, "unexpected error")
-				assertions.Equal(tt.want, got, "params not equal")
+				assertions.Equal(tt.want, got)
 			}
 		})
 	}

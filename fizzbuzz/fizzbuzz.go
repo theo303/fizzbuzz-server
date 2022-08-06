@@ -22,13 +22,16 @@ func ExecFizzbuzz(params Params) ([]string, error) {
 	}
 	for i := 1; i <= params.Limit; i++ {
 		str := ""
+		empty := true
 		if i%params.Int1 == 0 {
-			str = "fizz"
+			str = params.Str1
+			empty = false
 		}
 		if i%params.Int2 == 0 {
-			str = str + "buzz"
+			str = str + params.Str2
+			empty = false
 		}
-		if str == "" {
+		if empty {
 			str = strconv.Itoa(i)
 		}
 		output = append(output, str)
