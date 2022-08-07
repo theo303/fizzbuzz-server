@@ -1,4 +1,4 @@
-package http
+package api
 
 import (
 	"encoding/json"
@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"fizzbuzz-server/config"
-	"fizzbuzz-server/fizzbuzz"
+	"fizzbuzz-server/internal/fizzbuzz"
 
 	"github.com/rs/zerolog/log"
 )

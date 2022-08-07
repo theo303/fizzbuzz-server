@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 
+	"fizzbuzz-server/api"
 	"fizzbuzz-server/config"
-	"fizzbuzz-server/http"
 
 	"github.com/rs/zerolog"
 )
@@ -22,5 +22,5 @@ func main() {
 	}
 	zerolog.SetGlobalLevel(logLevel)
 
-	panic(http.Start(conf))
+	panic(api.Start(conf))
 }

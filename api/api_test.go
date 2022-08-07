@@ -1,9 +1,13 @@
-package http
+package api
 
 import (
-	"fizzbuzz-server/fizzbuzz"
+	"io/ioutil"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"fizzbuzz-server/internal/fizzbuzz"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -77,6 +81,70 @@ func Test_getParamsFizzbuzz(t *testing.T) {
 				assertions.NoError(errGot, "unexpected error")
 				assertions.Equal(tt.want, got)
 			}
+		})
+	}
+}
+
+// functional test
+func Test_FizzbuzzEndpoint(t *testing.T) {
+	tests := map[string]struct {
+		method   string
+		body     string
+		wantBody []byte
+		wantCode int
+	}{
+		"OK": {
+			method: "GET",
+			body: `{
+				"int1":3,
+				"int2":5,
+				"limit":16,
+				"str1":"fazz",
+				"str2":"buzz"
+			}`,
+			wantBody: []byte(`["1","2","fazz","4","buzz","fazz","7","8","fazz","buzz","11","fazz","13","14","fazzbuzz","16"]`),
+			wantCode: http.StatusOK,
+		},
+		"KO - method not allowed": {
+			method: "POST",
+			body: `{
+				"int1":3,
+				"int2":5,
+				"limit":16,
+				"str1":"fazz",
+				"str2":"buzz"
+			}`,
+			wantBody: []byte(`{"code":405,"desc":"method not allowed"}`),
+			wantCode: http.StatusMethodNotAllowed,
+		},
+		"KO - invalid params": {
+			method: "GET",
+			body: `{
+				"int1":0,
+				"int2":5,
+				"limit":16,
+				"str1":"fazz",
+				"str2":"buzz"
+			}`,
+			wantBody: []byte(`{"code":400,"desc":"int1 missing (can't be zero)"}`),
+			wantCode: http.StatusBadRequest,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, "localhost:1234/fizzbuzz", strings.NewReader(tt.body))
+			w := httptest.NewRecorder()
+			handlerFizzbuzz(w, req)
+
+			resp := w.Result()
+			assertions := assert.New(t)
+
+			gotBody, errRead := ioutil.ReadAll(resp.Body)
+			if errRead != nil {
+				panic(errRead)
+			}
+			assertions.Equal(tt.wantCode, resp.StatusCode)
+			assertions.Equal([]byte(tt.wantBody), gotBody)
 		})
 	}
 }

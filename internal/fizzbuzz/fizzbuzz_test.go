@@ -23,9 +23,46 @@ func Test_ExecFizzbuzz(t *testing.T) {
 			want:    []string{},
 			wantErr: true,
 		},
+		"KO - Int = 0": {
+			params: Params{
+				Int1:  0,
+				Int2:  5,
+				Limit: 16,
+				Str1:  "fizz",
+				Str2:  "buzz",
+			},
+			want:    []string{},
+			wantErr: true,
+		},
 		"OK": {
 			params: Params{
 				Int1:  3,
+				Int2:  5,
+				Limit: 16,
+				Str1:  "fizz",
+				Str2:  "buzz",
+			},
+			want: []string{
+				"1", "2", "fizz", "4", "buzz", "fizz", "7", "8",
+				"fizz", "buzz", "11", "fizz", "13", "14", "fizzbuzz", "16",
+			},
+		},
+		"empty strings": {
+			params: Params{
+				Int1:  3,
+				Int2:  5,
+				Limit: 16,
+				Str1:  "",
+				Str2:  "",
+			},
+			want: []string{
+				"1", "2", "", "4", "", "", "7", "8",
+				"", "", "11", "", "13", "14", "", "16",
+			},
+		},
+		"negative values": {
+			params: Params{
+				Int1:  -3,
 				Int2:  5,
 				Limit: 16,
 				Str1:  "fizz",

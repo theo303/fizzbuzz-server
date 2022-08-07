@@ -17,8 +17,8 @@ type Params struct {
 // ExecFizzbuzz starts the fizzbuzz process
 func ExecFizzbuzz(params Params) ([]string, error) {
 	var output []string
-	if params.Limit < 1 {
-		return []string{}, errors.New("limit must be superior or equal to 1")
+	if params.Int1 == 0 || params.Int2 == 0 || params.Limit < 1 {
+		return []string{}, errors.New("invalid params")
 	}
 	for i := 1; i <= params.Limit; i++ {
 		str := ""
