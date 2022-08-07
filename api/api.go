@@ -23,6 +23,15 @@ type clientError struct {
 // In case of internal error, do not send the explicit error to the client
 var internalError clientError = clientError{Code: http.StatusInternalServerError, Desc: "internal error"}
 
+func getErrorBody(fErr clientError) []byte {
+	body, errJson := json.Marshal(fErr)
+	if errJson != nil {
+		log.Error().Err(errJson).Msg("error while creating error body")
+		return []byte{}
+	}
+	return body
+}
+
 // Start starts the server
 func Start(conf config.Conf) error {
 	http.HandleFunc("/fizzbuzz", handlerFizzbuzz)
@@ -33,79 +42,72 @@ func Start(conf config.Conf) error {
 
 func handlerFizzbuzz(w http.ResponseWriter, r *http.Request) {
 	reqID := uuid.New()
-	log.Debug().
+	log.Info().
 		Str("address", r.RemoteAddr).
 		Str("requestID", reqID.String()).
 		Msg("received request")
 
+	code, headersMap, body, errProcess := processFizzbuzz(r)
+	if errProcess != nil {
+		log.Warn().Err(errProcess).Str("requestID", reqID.String()).Msg("error while processing request")
+	}
+	for headerKey, headers := range headersMap {
+		for _, header := range headers {
+			w.Header().Add(headerKey, header)
+		}
+	}
+	w.WriteHeader(code)
+	w.Write(body)
+}
+
+func processFizzbuzz(r *http.Request) (code int, headers map[string][]string, body []byte, err error) {
+	// check method
 	if r.Method != "GET" {
-		w.Header().Add("Allow", "GET")
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Write(getErrorBody(clientError{Code: http.StatusMethodNotAllowed, Desc: "method not allowed"}))
-		return
+		return http.StatusMethodNotAllowed,
+			map[string][]string{"Allow": {"GET"}},
+			getErrorBody(clientError{Code: http.StatusMethodNotAllowed, Desc: "method not allowed"}),
+			errors.New("invalid method")
 	}
 
 	// read body
 	reqBody, errRead := ioutil.ReadAll(r.Body)
 	if errRead != nil {
-		log.Warn().Err(errRead).
-			Str("requestID", reqID.String()).
-			Msg("error while reading body")
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(getErrorBody(internalError))
-		return
+		return http.StatusInternalServerError,
+			map[string][]string{},
+			getErrorBody(internalError),
+			fmt.Errorf("error reading body: %w", errRead)
 	}
 
 	// retrieve and check params
 	params, clientErr, errParams := getParamsFizzbuzz(reqBody)
 	if errParams != nil {
-		log.Warn().Err(errParams).
-			Str("requestID", reqID.String()).
-			Str("body", string(reqBody)).
-			Msg("invalid params")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(getErrorBody(clientErr))
-		return
+		return http.StatusBadRequest,
+			map[string][]string{},
+			getErrorBody(clientErr),
+			fmt.Errorf("invalid params: %w", errParams)
 	}
 
-	// execute fizzbuzz process
+	// execute fizzbuzz
 	output, errExec := fizzbuzz.ExecFizzbuzz(params)
 	if errExec != nil {
-		log.Error().
-			Err(errExec).
-			Str("requestID", reqID.String()).
-			Msg("error while executing fizzbuzz process")
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(getErrorBody(internalError))
-		return
+		return http.StatusInternalServerError,
+			map[string][]string{},
+			getErrorBody(internalError),
+			fmt.Errorf("error executing fizzbuzz: %w", errExec)
 	}
 
 	// write response
-	w.WriteHeader(http.StatusOK)
 	body, errJson := json.Marshal(output)
 	if errJson != nil {
-		log.Error().Err(errJson).
-			Str("requestID", reqID.String()).
-			Str("output", strings.Join(output, ",")).
-			Msg("error while marshalling output")
-
+		return http.StatusInternalServerError,
+			map[string][]string{},
+			getErrorBody(internalError),
+			fmt.Errorf("error marshalling json: %w", errJson)
 	}
-	_, errWrite := w.Write(body)
-	if errWrite != nil {
-		log.Error().Err(errWrite).
-			Str("requestID", reqID.String()).
-			Str("body", string(body)).
-			Msg("error while writing body")
-	}
-}
-
-func getErrorBody(fErr clientError) []byte {
-	body, errJson := json.Marshal(fErr)
-	if errJson != nil {
-		log.Error().Err(errJson).Msg("error while creating error body")
-		return []byte{}
-	}
-	return body
+	return http.StatusOK,
+		map[string][]string{},
+		body,
+		nil
 }
 
 // getParamsFizzbuzz retrieves and checks params from the body
