@@ -14,11 +14,11 @@ import (
 
 func Test_getErrorBody(t *testing.T) {
 	tests := map[string]struct {
-		err  formattedError
+		err  clientError
 		want []byte
 	}{
 		"OK": {
-			err: formattedError{
+			err: clientError{
 				Code: http.StatusForbidden,
 				Desc: "test error",
 			},
@@ -34,9 +34,10 @@ func Test_getErrorBody(t *testing.T) {
 
 func Test_getParamsFizzbuzz(t *testing.T) {
 	tests := map[string]struct {
-		body    []byte
-		want    fizzbuzz.Params
-		wantErr []string
+		body          []byte
+		want          fizzbuzz.Params
+		wantClientErr []string
+		wantErr       []string
 	}{
 		"OK": {
 			body: []byte(`{
@@ -54,28 +55,36 @@ func Test_getParamsFizzbuzz(t *testing.T) {
 			},
 		},
 		"KO - missing integers": {
-			body:    []byte(`{}`),
-			wantErr: []string{"int1 missing", "int2 missing", "limit missing"},
+			body:          []byte(`{}`),
+			wantClientErr: []string{"int1 missing", "int2 missing", "limit missing"},
+			wantErr:       []string{"int1 missing", "int2 missing", "limit missing"},
 		},
 		"KO - limit negative": {
 			body: []byte(`{
 				"int1":3,
 				"limit":-16
 			}`),
-			wantErr: []string{"int2 missing", "limit must be superior to one"},
+			wantClientErr: []string{"int2 missing", "limit must be superior to one"},
+			wantErr:       []string{"int2 missing", "limit must be superior to one"},
 		},
 		"KO - invalid JSON": {
-			body:    []byte(`aaa`),
-			wantErr: []string{"invalid params"},
+			body:          []byte(`aaa`),
+			wantClientErr: []string{"invalid params"},
+			wantErr:       []string{"invalid character"},
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			assertions := assert.New(t)
-			got, errGot := getParamsFizzbuzz(tt.body)
+			got, errClientGot, errGot := getParamsFizzbuzz(tt.body)
 			if len(tt.wantErr) != 0 {
+				// test internal error
 				for _, errStr := range tt.wantErr {
 					assertions.Contains(errGot.Error(), errStr, "error not found")
+				}
+				// test client error
+				for _, errClientStr := range tt.wantClientErr {
+					assertions.Contains(errClientGot.Desc, errClientStr, "error not found")
 				}
 			} else {
 				assertions.NoError(errGot, "unexpected error")
