@@ -8,29 +8,10 @@ import (
 	"testing"
 
 	"fizzbuzz-server/internal/fizzbuzz"
+	"fizzbuzz-server/internal/stats"
 
 	"github.com/stretchr/testify/assert"
 )
-
-func Test_getErrorBody(t *testing.T) {
-	tests := map[string]struct {
-		err  clientError
-		want []byte
-	}{
-		"OK": {
-			err: clientError{
-				Code: http.StatusForbidden,
-				Desc: "test error",
-			},
-			want: []byte(`{"code":403,"desc":"test error"}`),
-		},
-	}
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			assert.Equal(t, tt.want, getErrorBody(tt.err))
-		})
-	}
-}
 
 func Test_getParamsFizzbuzz(t *testing.T) {
 	tests := map[string]struct {
@@ -143,7 +124,51 @@ func Test_FizzbuzzEndpoint(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "localhost:1234/fizzbuzz", strings.NewReader(tt.body))
 			w := httptest.NewRecorder()
-			handlerFizzbuzz(w, req)
+			api := Api{counter: stats.NewFizzbuzzCounter()}
+			api.handlerFizzbuzz(w, req)
+
+			resp := w.Result()
+			assertions := assert.New(t)
+
+			gotBody, errRead := ioutil.ReadAll(resp.Body)
+			if errRead != nil {
+				panic(errRead)
+			}
+			assertions.Equal(tt.wantCode, resp.StatusCode)
+			assertions.Equal([]byte(tt.wantBody), gotBody)
+		})
+	}
+}
+
+// functional test
+func Test_MostFreqReqEndpoint(t *testing.T) {
+	tests := map[string]struct {
+		method   string
+		fbc      stats.FizzbuzzCounter
+		wantBody []byte
+		wantCode int
+	}{
+		"OK": {
+			method: "GET",
+			fbc: map[fizzbuzz.Params]int{
+				{Int1: 3, Int2: 5, Limit: 16, Str1: "fizz", Str2: "buzz"}: 2,
+			},
+			wantBody: []byte(`{"count":2,"params":[{"int1":3,"int2":5,"limit":16,"str1":"fizz","str2":"buzz"}]}`),
+			wantCode: http.StatusOK,
+		},
+		"KO - method not allowed": {
+			method:   "POST",
+			fbc:      stats.FizzbuzzCounter{},
+			wantBody: []byte(`{"code":405,"desc":"method not allowed"}`),
+			wantCode: http.StatusMethodNotAllowed,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, "localhost:1234/fizzbuzz", nil)
+			w := httptest.NewRecorder()
+			api := Api{counter: tt.fbc}
+			api.handlerMostFrequentReq(w, req)
 
 			resp := w.Result()
 			assertions := assert.New(t)

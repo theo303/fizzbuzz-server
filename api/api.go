@@ -10,44 +10,39 @@ import (
 
 	"fizzbuzz-server/config"
 	"fizzbuzz-server/internal/fizzbuzz"
+	"fizzbuzz-server/internal/stats"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
-type clientError struct {
-	Code int    `json:"code"`
-	Desc string `json:"desc"`
+// Api represents the API of the fizzbuzz server
+type Api struct {
+	counter stats.FizzbuzzCounter
 }
 
-// In case of internal error, do not send the explicit error to the client
-var internalError clientError = clientError{Code: http.StatusInternalServerError, Desc: "internal error"}
-
-func getErrorBody(fErr clientError) []byte {
-	body, errJson := json.Marshal(fErr)
-	if errJson != nil {
-		log.Error().Err(errJson).Msg("error while creating error body")
-		return []byte{}
-	}
-	return body
+// Init initialize API with a new counter
+func Init() *Api {
+	return &Api{counter: stats.NewFizzbuzzCounter()}
 }
 
-// Start starts the server
-func Start(conf config.Conf) error {
-	http.HandleFunc("/fizzbuzz", handlerFizzbuzz)
+// Run starts the server
+func (a *Api) Run(conf config.Conf) error {
+	http.HandleFunc("/fizzbuzz", a.handlerFizzbuzz)
+	http.HandleFunc("/mostfreqreq", a.handlerMostFrequentReq)
 
 	log.Info().Int("port", conf.Port).Msg("starting server")
 	return http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), nil)
 }
 
-func handlerFizzbuzz(w http.ResponseWriter, r *http.Request) {
+func (a *Api) handlerFizzbuzz(w http.ResponseWriter, r *http.Request) {
 	reqID := uuid.New()
 	log.Info().
 		Str("address", r.RemoteAddr).
 		Str("requestID", reqID.String()).
 		Msg("received request")
 
-	code, headersMap, body, errProcess := processFizzbuzz(r)
+	code, headersMap, body, errProcess := a.processFizzbuzz(r)
 	if errProcess != nil {
 		log.Warn().Err(errProcess).Str("requestID", reqID.String()).Msg("error while processing request")
 	}
@@ -58,14 +53,18 @@ func handlerFizzbuzz(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(code)
 	w.Write(body)
+	log.Info().
+		Str("body", string(body)).
+		Str("requestID", reqID.String()).
+		Msg("sending response")
 }
 
-func processFizzbuzz(r *http.Request) (code int, headers map[string][]string, body []byte, err error) {
+func (a *Api) processFizzbuzz(r *http.Request) (code int, headers map[string][]string, body []byte, err error) {
 	// check method
 	if r.Method != "GET" {
 		return http.StatusMethodNotAllowed,
 			map[string][]string{"Allow": {"GET"}},
-			getErrorBody(clientError{Code: http.StatusMethodNotAllowed, Desc: "method not allowed"}),
+			clientError{Code: http.StatusMethodNotAllowed, Desc: "method not allowed"}.getErrorBody(),
 			errors.New("invalid method")
 	}
 
@@ -74,7 +73,7 @@ func processFizzbuzz(r *http.Request) (code int, headers map[string][]string, bo
 	if errRead != nil {
 		return http.StatusInternalServerError,
 			map[string][]string{},
-			getErrorBody(internalError),
+			internalError.getErrorBody(),
 			fmt.Errorf("error reading body: %w", errRead)
 	}
 
@@ -83,25 +82,28 @@ func processFizzbuzz(r *http.Request) (code int, headers map[string][]string, bo
 	if errParams != nil {
 		return http.StatusBadRequest,
 			map[string][]string{},
-			getErrorBody(clientErr),
+			clientErr.getErrorBody(),
 			fmt.Errorf("invalid params: %w", errParams)
 	}
+
+	// increment counter
+	a.counter.Inc(params)
 
 	// execute fizzbuzz
 	output, errExec := fizzbuzz.ExecFizzbuzz(params)
 	if errExec != nil {
 		return http.StatusInternalServerError,
 			map[string][]string{},
-			getErrorBody(internalError),
+			internalError.getErrorBody(),
 			fmt.Errorf("error executing fizzbuzz: %w", errExec)
 	}
 
-	// write response
+	// create response
 	body, errJson := json.Marshal(output)
 	if errJson != nil {
 		return http.StatusInternalServerError,
 			map[string][]string{},
-			getErrorBody(internalError),
+			internalError.getErrorBody(),
 			fmt.Errorf("error marshalling json: %w", errJson)
 	}
 	return http.StatusOK,
@@ -140,4 +142,54 @@ func getParamsFizzbuzz(body []byte) (fizzbuzz.Params, clientError, error) {
 	}
 
 	return params, clientError{}, nil
+}
+
+func (a *Api) handlerMostFrequentReq(w http.ResponseWriter, r *http.Request) {
+	reqID := uuid.New()
+	log.Info().
+		Str("address", r.RemoteAddr).
+		Str("requestID", reqID.String()).
+		Msg("received request")
+
+	code, headersMap, body, errProcess := a.processMostFrequentReq(r)
+	if errProcess != nil {
+		log.Warn().Err(errProcess).Str("requestID", reqID.String()).Msg("error while processing request")
+	}
+	for headerKey, headers := range headersMap {
+		for _, header := range headers {
+			w.Header().Add(headerKey, header)
+		}
+	}
+	w.WriteHeader(code)
+	w.Write(body)
+	log.Info().
+		Str("body", string(body)).
+		Str("requestID", reqID.String()).
+		Msg("sending response")
+}
+
+func (a *Api) processMostFrequentReq(r *http.Request) (code int, headers map[string][]string, body []byte, err error) {
+	// check method
+	if r.Method != "GET" {
+		return http.StatusMethodNotAllowed,
+			map[string][]string{"Allow": {"GET"}},
+			clientError{Code: http.StatusMethodNotAllowed, Desc: "method not allowed"}.getErrorBody(),
+			errors.New("invalid method")
+	}
+
+	// retrieve most frequent request
+	mostFreReq := a.counter.MostFrequentReq()
+
+	// create response
+	body, errJson := json.Marshal(mostFreReq)
+	if errJson != nil {
+		return http.StatusInternalServerError,
+			map[string][]string{},
+			internalError.getErrorBody(),
+			fmt.Errorf("error marshalling json: %w", errJson)
+	}
+	return http.StatusOK,
+		map[string][]string{},
+		body,
+		nil
 }

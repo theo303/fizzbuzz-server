@@ -22,5 +22,7 @@ func main() {
 	}
 	zerolog.SetGlobalLevel(logLevel)
 
-	panic(api.Start(conf))
+	api := api.Init()
+
+	panic(api.Run(conf))
 }
