@@ -10,6 +10,7 @@ import (
 	"fizzbuzz-server/internal/stats"
 )
 
+// ProcessMostFrequentReq does all the process of a mostfreqreq request
 func ProcessMostFrequentReq(r *http.Request, counter stats.FizzbuzzCounter) (code int, headers map[string][]string, body []byte, err error) {
 	// check method
 	if r.Method != "GET" {
