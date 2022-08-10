@@ -37,8 +37,11 @@ func (fbc FizzbuzzCounter) MostFrequentReq() MostFrequentReq {
 	max := 0
 	maxParams := []fizzbuzz.Params{}
 	for params, count := range fbc {
-		if count >= max {
+		if count > max {
 			max = count
+			maxParams = []fizzbuzz.Params{}
+			maxParams = append(maxParams, params)
+		} else if count == max {
 			maxParams = append(maxParams, params)
 		}
 	}

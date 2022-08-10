@@ -1,4 +1,4 @@
-package api
+package clienterr
 
 import (
 	"net/http"
@@ -9,11 +9,11 @@ import (
 
 func Test_clientError_getErrorBody(t *testing.T) {
 	tests := map[string]struct {
-		err  clientError
+		err  ClientError
 		want []byte
 	}{
 		"OK": {
-			err: clientError{
+			err: ClientError{
 				Code: http.StatusForbidden,
 				Desc: "test error",
 			},
@@ -22,7 +22,7 @@ func Test_clientError_getErrorBody(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.err.getErrorBody())
+			assert.Equal(t, tt.want, tt.err.GetErrorBody())
 		})
 	}
 }

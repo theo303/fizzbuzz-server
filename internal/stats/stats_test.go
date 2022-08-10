@@ -204,7 +204,8 @@ func Test_FizzbuzzCounter_MostFrequentRequest(t *testing.T) {
 			assertions := assert.New(t)
 
 			got := tt.fbc.MostFrequentReq()
-			assertions.Equal(tt.want, got, "wrong value")
+			assertions.Equal(tt.want.Count, got.Count, "count different")
+			assertions.ElementsMatch(tt.want.Params, got.Params, "params different")
 		})
 	}
 }
