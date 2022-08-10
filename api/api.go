@@ -15,6 +15,7 @@ import (
 
 // Api represents the API of the fizzbuzz server
 type Api struct {
+	*http.Server
 	counter stats.FizzbuzzCounter
 }
 
@@ -26,18 +27,21 @@ type ProcessFunc func(*http.Request, stats.FizzbuzzCounter) (
 	err error,
 )
 
-// Init initialize API with a new counter
-func Init() *Api {
-	return &Api{counter: stats.NewFizzbuzzCounter()}
+// Init initialize API server with a new counter
+func Init(conf config.Conf) *Api {
+	return &Api{
+		Server:  &http.Server{Addr: fmt.Sprintf(":%d", conf.Port)},
+		counter: stats.NewFizzbuzzCounter(),
+	}
 }
 
 // Run starts the server
-func (a *Api) Run(conf config.Conf) error {
+func (a *Api) Run() error {
 	http.HandleFunc("/fizzbuzz", a.handlerWithLogs(fizzbuzzhandler.ProcessFizzbuzz))
 	http.HandleFunc("/mostfreqreq", a.handlerWithLogs(mostfreqreqhandler.ProcessMostFrequentReq))
 
-	log.Info().Int("port", conf.Port).Msg("starting server")
-	return http.ListenAndServe(fmt.Sprintf(":%d", conf.Port), nil)
+	log.Info().Str("addr", a.Addr).Msg("starting server")
+	return a.ListenAndServe()
 }
 
 func (a *Api) handlerWithLogs(f ProcessFunc) func(http.ResponseWriter, *http.Request) {
