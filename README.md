@@ -13,6 +13,7 @@ Home task for leboncoin - fizzbuzz server implementation
 .
 ├── api # manages the API routes
 │   ├── api.go
+│   ├── api_test.go # integration test
 │   ├── clienterr # formatted error for client
 │   │   ├── clienterr.go
 │   │   └── clienterr_test.go
@@ -78,10 +79,11 @@ response example:
   
 ### Most frequent request - /mostfreqreq (GET)
 The most frequent request endpoints allows the user to retrieve the parameters of the most frequent request.  
+It only counts requests to the fizzbuzz route with valid parameters.  
 The endpoint is `/mostfreqreq`. The only method accepted is GET.  
 No parameters are required.  
   
-The response will be formatted in JSON and will give the set of parameters for the most frequent request and the number of times it was requested.
+The response will be formatted in JSON and will give the set of parameters for the most frequent request and the number of times it was requested.  
 response example:
 ```json
 {
