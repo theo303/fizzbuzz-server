@@ -11,7 +11,7 @@ import (
 )
 
 // ProcessMostFrequentReq does all the process of a mostfreqreq request
-func ProcessMostFrequentReq(r *http.Request, counter stats.FizzbuzzCounter) (code int, headers map[string][]string, body []byte, err error) {
+func ProcessMostFrequentReq(r *http.Request, counter stats.FizzbuzzCounter) (int, map[string][]string, []byte, error) {
 	// check method
 	if r.Method != "GET" {
 		return http.StatusMethodNotAllowed,

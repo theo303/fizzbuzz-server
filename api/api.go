@@ -29,17 +29,18 @@ type ProcessFunc func(*http.Request, stats.FizzbuzzCounter) (
 
 // Init initialize API server with a new counter
 func Init(conf config.Conf) *Api {
-	return &Api{
+	api := &Api{
 		Server:  &http.Server{Addr: fmt.Sprintf(":%d", conf.Port)},
 		counter: stats.NewFizzbuzzCounter(),
 	}
+	http.HandleFunc("/fizzbuzz", api.handlerWithLogs(fizzbuzzhandler.ProcessFizzbuzz))
+	http.HandleFunc("/mostfreqreq", api.handlerWithLogs(mostfreqreqhandler.ProcessMostFrequentReq))
+
+	return api
 }
 
 // Run starts the server
 func (a *Api) Run() error {
-	http.HandleFunc("/fizzbuzz", a.handlerWithLogs(fizzbuzzhandler.ProcessFizzbuzz))
-	http.HandleFunc("/mostfreqreq", a.handlerWithLogs(mostfreqreqhandler.ProcessMostFrequentReq))
-
 	log.Info().Str("addr", a.Addr).Msg("starting server")
 	return a.ListenAndServe()
 }
@@ -50,6 +51,7 @@ func (a *Api) handlerWithLogs(f ProcessFunc) func(http.ResponseWriter, *http.Req
 		log.Info().
 			Str("address", r.RemoteAddr).
 			Str("requestID", reqID.String()).
+			Str("route", r.URL.Path).
 			Msg("received request")
 
 		code, headersMap, body, errProcess := f(r, a.counter)
