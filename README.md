@@ -53,6 +53,9 @@ The simplest way is to use docker:
  - Run the container (and publish a port) `docker run --publish 8080:8080 -d fizzbuzz-server`  
  - You can now access the API on the port you published
   
+### Windows usage  
+Fizzbuzz-server was not tested on Windows  
+  
 ## Endpoints  
 The API has 2 routes availables  
   
@@ -102,4 +105,5 @@ response example:
 
 ## TODO / Improvements  
  - CI
+ - Add swagger
  - Use prometheus instead of the stats.FizzbuzzCounter -> This would be usefull if monitoring other routes was needed
